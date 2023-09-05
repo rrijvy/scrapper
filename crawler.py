@@ -5,47 +5,60 @@ from userAgent import UserAgent
 
 
 class Crawler:
-    def initRequest(
+    userAgents: UserAgent
+    proxy: Proxy
+
+    def __init__(
         self,
         url: str,
         userAgents: list[UserAgent],
         proxies: list[Proxy],
-        crawler: AbstractCrawler,
-    ):
-        userAgent: UserAgent
-        proxy: Proxy
+    ) -> None:
+        self.url: str = url
+        self.userAgents: list[UserAgent] = userAgents
+        self.proxies: list[Proxy] = proxies
+        self.requestSession: Session = Session()
+        self.updateRequestHeader()
 
-        for agent in userAgents:
+    def getUserAgent(self) -> UserAgent:
+        for agent in self.userAgents:
             if agent.isActive == False:
-                userAgent = agent
                 agent.isActive = True
-                break
+                return agent
 
-        for proxyItem in proxies:
+    def getProxy(self) -> Proxy:
+        for proxyItem in self.proxies:
             if proxyItem.isActive == False:
-                proxy = proxyItem
                 proxyItem.isActive = True
-                break
+                return proxyItem
 
-        requestHeaders = {"User-Agent": userAgent.ua}
+    def updateRequestHeader(self) -> None:
+        self.userAgent: UserAgent = self.getUserAgent()
+        self.proxy: Proxy = self.getProxy()
+        requestHeaders = {"User-Agent": self.userAgent.ua}
+        proxyUrls = {"http": f"https://{self.proxy.ip}:{self.proxy.port}"}
+        self.requestSession.headers.update(requestHeaders)
+        self.requestSession.proxies.update(proxyUrls)
 
-        proxyUrls = {
-            "http": f"http://{proxy.ip}:{proxy.port}",
-            "https": f"https://{proxy.ip}:{proxy.port}",
-        }
+    def retry(self, crawler: AbstractCrawler):
+        self.updateRequestHeader()
+        response = self.requestSession.get(self.url)
+        if response.status_code == 200:
+            isCrawlingSucceeded = crawler.startCrawl(response)
+        else:
+            self.retry(crawler)
+        pass
 
-        requestSession = Session()
-
-        requestSession.headers.update(requestHeaders)
-
-        # requestSession.proxies.update(proxyUrls)
-
-        response = requestSession.get(url)
-
-        isCrawlingSucceeded = crawler.startCrawl(response)
-
-        if isCrawlingSucceeded:
-            userAgent.isActive = False
-            proxy.isActive = False
+    def initRequest(self, crawler: AbstractCrawler):
+        response = self.requestSession.get(self.url)
+        if response.status_code == 200:
+            isCrawlingSucceeded = crawler.startCrawl(response)
+            # self.userAgent.isActive = False
+            # self.proxy.isActive = False
+        else:
+            # self.userAgent.isActive = False
+            # self.proxy.isActive = False
+            self.retry(crawler)
 
         print(isCrawlingSucceeded)
+        pass

@@ -18,8 +18,16 @@ session.headers.update(
 proxies: list[str] = []
 
 for source in sources:
-    response = requests.get(source).text.splitlines()
+    response = session.get(source).text.splitlines()
     proxies.extend(response)
+
+validProxies: list[str] = []
+
+for proxy in proxies:
+    response = session.get("http://httpbin.org/ip")
+    if response.status_code == 200:
+        print(proxy)
+        validProxies.append(proxy)
 
 with open("proxies.json", "w") as json_file:
     json.dump(proxies, json_file, indent=4)
